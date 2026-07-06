@@ -1,0 +1,25 @@
+# Chunking
+# (uses Python stdlib `ast` module — no extra install needed)
+
+# Lexical retrieval
+rank-bm25
+
+# Dense retrieval
+sentence-transformers
+faiss-cpu
+
+# Reranking
+# (cross-encoder is included in sentence-transformers)
+
+# LLM generation
+anthropic
+
+# API
+fastapi
+uvicorn
+
+# CLI
+typer
+
+# Testing
+pytest
