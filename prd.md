@@ -19,9 +19,10 @@ Generic RAG (chunk text → embed → top-k retrieval) underperforms on source c
   poorly, since they're trained mostly on natural language.
 - A single "most similar" chunk is often not the most useful one — call sites, definitions,
   and related usages are frequently lexically linked but semantically distant in embedding
-  space.
+  space. BM25 looks for lexical match and the dense search looks for semantic similarity
 - Naive fixed-size chunking splits functions/classes mid-body, destroying the unit of meaning
-  that a developer actually reasons about.
+  that a developer actually reasons about. We will use Abstract Syntax tree to combat this. Abstract syntax tree has code
+  that have a child parent structure
 
 CodeQA addresses this with hybrid retrieval (lexical + semantic) and reranking, and — critically
 — measures whether each added component actually earns its complexity, rather than assuming it.
@@ -73,7 +74,7 @@ CodeQA addresses this with hybrid retrieval (lexical + semantic) and reranking, 
 | 2   | AST-aware chunking for Python (function/class-level units)                                            | Must       |
 | 3   | Fallback line-window chunking for non-Python text files                                               | Must       |
 | 4   | Build a BM25 lexical index over chunks                                                                | Must       |
-| 5   | Build a dense embedding index (sentence-transformers + vector search) over chunks                     | Must       |
+| 5   | Generate chunk embeddings with sentence-transformers and index them with FAISS for vector search      | Must       |
 | 6   | Fuse BM25 + dense scores into a single ranked list (hybrid retrieval)                                 | Must       |
 | 7   | Rerank fused top-N candidates with a cross-encoder                                                    | Must       |
 | 8   | Generate a natural-language answer from top retrieved chunks via an LLM, with citations               | Must       |
@@ -102,12 +103,17 @@ CodeQA addresses this with hybrid retrieval (lexical + semantic) and reranking, 
 ## 9. System architecture (high level)
 
 ```
-Codebase → Chunker (AST-aware) → [BM25 index, Dense index]
+Codebase → Chunker (AST-aware) → [BM25 index, FAISS embedding index]
                                           |
 Query → BM25 retrieval ─┐
                          ├─→ Score fusion → Cross-encoder rerank → Top-k chunks → LLM → Answer w/ citations
-Query → Dense retrieval ─┘
+Query → FAISS retrieval ─┘
 ```
+
+Sentence-transformers generates embeddings for code chunks and user queries using the same
+model. FAISS indexes the chunk embeddings and retrieves the closest vectors to each query
+embedding, providing the semantic-search component. Each indexed vector maps back to its
+source chunk, file path, and line range so retrieved code can be cited in the final answer.
 
 ## 10. Evaluation plan
 
@@ -138,7 +144,7 @@ demo" into "I built and measured a retrieval system."
 | Milestone | Deliverable                                                       |
 | --------- | ----------------------------------------------------------------- |
 | M1        | Ingestion + AST-aware chunking working on a real target repo      |
-| M2        | BM25 index + dense index both built and independently queryable   |
+| M2        | BM25 index + FAISS embedding index both built and independently queryable |
 | M3        | Hybrid fusion + reranking implemented                             |
 | M4        | Eval set created; eval script produces the 4-way comparison table |
 | M5        | LLM generation wired in with citation formatting                  |
